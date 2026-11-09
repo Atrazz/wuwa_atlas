@@ -244,15 +244,23 @@ for name in PLAYABLE:
     node_info[name]["intro"] = clean(m.group(1)) if m else ""
 
     # --- family from infobox
+    # Kept verbatim: `field` is the infobox field (sibling, relative…), `note` is the wiki's own
+    # annotation. Notes are free text ("past self", "adopted by former self"), so the UI only
+    # turns them into a sentence when they are plain kinship words.
     for k, v in ib.items():
-        base = re.match(r"(father|mother|sibling|spouse|child|relative|guardian|parent)\d*$", k)
+        base = re.match(r"(father|mother|sibling|spouse|child|relative|guardian|parent)(\d*)$", k)
         if not base: continue
-        note = clean(ib.get(k + "Note", "")) or base.group(1)
-        for target in re.split(r"[;,]|<br\s*/?>", v):
-            tname = canon(clean(target))
+        field, num = base.groups()
+        field_note = clean(ib.get(k + "Note", "") or ib.get(field + "Note" + num, ""))
+        for piece in re.split(r";|<br\s*/?>", v):
+            link = re.search(r"\[\[([^|\]]+)", piece)
+            inline = re.search(r"\(([^)]*)\)\s*$", clean(piece))
+            tname = canon(link.group(1) if link else re.sub(r"\(.*?\)", "", clean(piece)))
             e = edge(name, tname)
             if e is not None:
-                e["family"].append(dict(from_=name, to=tname, role=note, source=f"{name} — character infobox", url=url))
+                note = field_note or (inline.group(1).strip() if inline else "")
+                e["family"].append(dict(from_=name, to=tname, field=field, role=note,
+                                        source=f"{name}’s profile", url=url))
 
     # --- voice lines
     vo = chars_wt.get(page + "/Voicelines", "")

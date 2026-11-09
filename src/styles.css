@@ -281,3 +281,5 @@ figure.ev-card { margin: 0 0 8px; }
 .rules-notes a { color: var(--cyan); }
 @media (max-width: 600px) { .rules-notes { grid-template-columns: 1fr; } }
 .search-icon, .search-kbd { z-index: 2; }
+.fam-line q { color: var(--gold2); font-style: italic; }
+.fam-line q::before { content: "“"; } .fam-line q::after { content: "”"; }

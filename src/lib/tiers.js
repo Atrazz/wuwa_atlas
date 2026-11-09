@@ -26,9 +26,13 @@ export const QUEST_COLOR = {
 
 export const other = (link, id) => (link.source.id ?? link.source) === id ? (link.target.id ?? link.target) : (link.source.id ?? link.source)
 
+// Wiki family notes are free text ("past self", "adopted by former self"). Only plain
+// kinship words are safe to read as "<to> is <from>'s <note>".
+const KIN = /^(adoptive |younger |older |elder |half-|step-?|distant )*(sister|brother|sibling|mother|father|parent|aunt|uncle|grandfather|grandmother|cousin|daughter|son|niece|nephew|ward|guardian|relative|student\/ward|student|teacher)(, .*)?$/i
+export const isKin = (role) => KIN.test((role || '').trim())
+
 export function bondLabel(l) {
-  const fam = l.family?.[0]
-  if (fam) return `Family · ${fam.role}`
+  if (l.family?.length) return 'Family'
   const vl = l.voiceline.length
   const vMutual = new Set(l.voiceline.map((v) => v.from)).size > 1
   const d = l.dialogue.length
@@ -48,7 +52,9 @@ export function tierCounts(l) {
 // A few short facts for the relationship header.
 export function facts(l, a, b) {
   const out = []
-  for (const f of l.family) out.push(`${f.to} is ${f.from}’s ${f.role.toLowerCase()}`)
+  const kin = l.family.filter((f) => isKin(f.role))
+  for (const f of kin) out.push(`${f.to}: ${f.role.toLowerCase()}`)
+  if (l.family.length && !kin.length) out.push('family link on the wiki profiles')
   if (l.dialogue.length) {
     const main = l.dialogue.filter((d) => d.type === 'Main').length
     out.push(`${l.dialogue.length} quest${l.dialogue.length > 1 ? 's' : ''} together${main ? ` (${main} main)` : ''}`)

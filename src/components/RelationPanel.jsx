@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Avatar from './Avatar'
-import { TIERS, TIER, QUEST_COLOR, bondLabel, facts, actLabel } from '../lib/tiers'
+import { TIERS, TIER, QUEST_COLOR, bondLabel, facts, actLabel, isKin } from '../lib/tiers'
 import Timeline from './Timeline'
 import DeepLinks from './DeepLinks'
 
@@ -108,6 +108,7 @@ export default function RelationPanel({ link, nodes, perspective, onBack, onClos
   const a = perspective === t ? t : s
   const b = a === s ? t : s
   const A = nodes[a], B = nodes[b]
+  const hasRover = a === 'Rover' || b === 'Rover'
   const [showAllQ, setShowAllQ] = useState(false)
   const quests = showAllQ ? link.dialogue : link.dialogue.slice(0, 6)
   const vlA = link.voiceline.filter((v) => v.from === a)
@@ -161,10 +162,12 @@ export default function RelationPanel({ link, nodes, perspective, onBack, onClos
 
       <div className="ev-scroll">
         <Timeline items={link.timeline} />
-        {(link.namedrops || link.talkTotal > 0) && (
+        {/* Rover is addressed by name constantly, so name-drops of Rover aren't counted:
+            for Rover pairs only the WavesLine split is meaningful */}
+        {((link.namedrops && !hasRover) || link.phoneTotal > 0) && (
           <div className="talkmeter">
-            <div className="tm-head">Says the other’s name</div>
-            {[a, b].map((p) => {
+            {!hasRover && <div className="tm-head">Says the other’s name</div>}
+            {(hasRover ? [] : [a, b]).map((p) => {
               const nd = link.namedrops?.[p]
               const max = Math.max(link.namedrops?.[a]?.times || 0, link.namedrops?.[b]?.times || 0, 1)
               return (
@@ -182,7 +185,11 @@ export default function RelationPanel({ link, nodes, perspective, onBack, onClos
           <Section tier="family" count={link.family.length}>
             {link.family.map((f, i) => (
               <div key={i} className="ev-card family">
-                <div className="fam-line"><b>{f.to}</b> is <b>{f.from}</b>’s <em>{f.role}</em></div>
+                <div className="fam-line">
+                  {isKin(f.role)
+                    ? <><b>{f.to}</b> is <b>{f.from}</b>’s <em>{f.role.toLowerCase()}</em></>
+                    : <><b>{f.from}</b>’s profile lists <b>{f.to}</b> as {f.field || 'relative'}{f.role && <> · <q>{f.role}</q></>}</>}
+                </div>
                 <a className="src" href={f.url} target="_blank" rel="noreferrer">{f.from}’s profile ↗</a>
               </div>
             ))}
