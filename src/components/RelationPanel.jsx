@@ -67,6 +67,7 @@ function QuestCard({ d, a, b, nodes, open: open0 }) {
       <button className="quest-head" onClick={() => setOpen(!open)}>
         <span className="qtype" style={{ '--q': qc }}>{d.type}</span>
         <span className="qname">{d.quest}</span>
+        {d.call > 0 && <span className="qphone" title={`${d.call} exchanges by call`}>☏ {d.channel === 'call' ? 'Call' : d.call}</span>}
         {d.phone > 0 && <span className="qphone" title={`${d.phone} exchanges over WavesLine`}>✉ {d.channel === 'phone' ? 'WavesLine' : d.phone}</span>}
         <span className="qex" title="Back-and-forth lines between the two">{d.exchanges}⇄</span>
       </button>
@@ -164,7 +165,7 @@ export default function RelationPanel({ link, nodes, perspective, onBack, onClos
         <Timeline items={link.timeline} />
         {/* Rover is addressed by name constantly, so name-drops of Rover aren't counted:
             for Rover pairs only the WavesLine split is meaningful */}
-        {((link.namedrops && !hasRover) || link.phoneTotal > 0) && (
+        {((link.namedrops && !hasRover) || link.phoneTotal > 0 || link.callTotal > 0) && (
           <div className="talkmeter">
             {!hasRover && <div className="tm-head">Says the other’s name</div>}
             {(hasRover ? [] : [a, b]).map((p) => {
@@ -178,7 +179,11 @@ export default function RelationPanel({ link, nodes, perspective, onBack, onClos
                 </div>
               )
             })}
-            {link.phoneTotal > 0 && <div className="tm-foot">Exchanges: <b>{link.talkTotal}</b> in person · <b>{link.phoneTotal}</b> on WavesLine</div>}
+            {(link.phoneTotal > 0 || link.callTotal > 0) && (
+              <div className="tm-foot">Exchanges: <b>{link.talkTotal}</b> in person
+                {link.callTotal > 0 && <> · <b>{link.callTotal}</b> by call</>}
+                {link.phoneTotal > 0 && <> · <b>{link.phoneTotal}</b> on WavesLine</>}</div>
+            )}
           </div>
         )}
         {link.family.length > 0 && (

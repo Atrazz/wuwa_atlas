@@ -115,29 +115,68 @@ SPEAK = re.compile(r"'''\s*(\{\{Rover\}\}|[^'\n]{1,40}?)\s*:\s*'''\s*(.*)")
 TRAILING_SPEAKER = re.compile(r"'''[^']*:'''.*")
 
 
+AUDIO = re.compile(r"\{\{A\|([^}|]+?)\.ogg")
+QUALIFIED = re.compile(r"^(.*?)\s*\(([^)]*)\)$")
+
+
+def speaker(raw_name):
+    """'Jiyan (Contacting)' -> ('Jiyan', 'call'); '??? (Cristoforo)' -> ('Cristoforo', 'talk');
+    'Cosmos (Encore)' -> ('Cosmos', 'talk'): the bracket is only who it really is when the name is hidden."""
+    name = clean(raw_name)
+    if name in ("{{Rover}}", "(Rover)") or name.startswith("Rover"):
+        return canon(name), "talk"
+    m = QUALIFIED.match(name)
+    if not m:
+        return canon(name), "talk"
+    base, qual = m.group(1).strip(), m.group(2).strip()
+    if re.fullmatch(r"\?+", base) and qual and qual != "Contacting":
+        return canon(qual), "talk"
+    return canon(base), "call" if qual.lower() == "contacting" else "talk"
+
+
+def audio_scene(raw):
+    """Voice files are named '<quest id> <scene> <line>[ m|f]' or '<id>_<scene>_<line>[_M|_F]';
+    everything but the line number identifies the scene, so a change means a cut."""
+    m = AUDIO.search(raw)
+    if not m: return None
+    name = re.sub(r"^Vo\s+", "", m.group(1).strip(), flags=re.I)
+    name = re.sub(r"[\s_][mfMF]$", "", name)
+    tokens = [t for t in re.split(r"[\s_]+", name) if t]
+    if len(tokens) < 2 or not tokens[-1].isdigit(): return None
+    return tuple(tokens[:-1])
+
+
 def parse_dialogue(wt):
-    """-> list of (speaker, text, channel) with None marking scene breaks.
-    channel is 'phone' inside a {{WavesLine}} block, else 'talk'."""
+    """-> list of (speaker, text, channel) with None marking a break between scenes.
+    channel: 'phone' inside a {{WavesLine}} block, 'call' for '(Contacting)' speakers, else 'talk'.
+    Breaks: '----' rules, blank lines (a gameplay beat), section/step headers,
+    {{Dialogue Start/End}}, and a change of scene number in the voice-file names."""
     i = wt.find("==Dialogue")
     if i < 0: i = wt.find("{{Dialogue Start")
     body = wt[i:] if i >= 0 else ""
-    lines, phone, depth = [], False, 0
+    lines, phone, depth, scene = [], False, 0, None
+    brk = lambda: lines and lines[-1] is not None and lines.append(None)
     for raw in body.split("\n"):
+        s = raw.strip()
         if "{{WavesLine" in raw and not phone:
-            lines.append(None)
+            brk()
             phone, depth = True, 0
         if phone:
             depth += raw.count("{{") - raw.count("}}")
-        if raw.startswith(";") or raw.startswith("=="):
-            lines.append(None)
+        sc = audio_scene(raw)
+        if sc and scene and sc != scene: brk()
+        if sc: scene = sc
+        if (not s or s.startswith("----") or s.startswith(";") or s.startswith("==")
+                or s.startswith("{{Dialogue Start") or s.startswith("{{Dialogue End")):
+            brk()
         elif "{Choice}" not in raw:
             for m in SPEAK.finditer(raw):
-                spk = canon(clean(m.group(1)))
+                spk, ch = speaker(m.group(1))
                 txt = TRAILING_SPEAKER.sub("", clean(m.group(2))).strip()
-                if txt and spk: lines.append((spk, txt, "phone" if phone else "talk"))
+                if txt and spk: lines.append((spk, txt, "phone" if phone else ch))
         if phone and depth <= 0:
             phone = False
-            lines.append(None)
+            brk()
     return lines
 
 
@@ -360,15 +399,19 @@ for q in quests.values():
             while out and out[-1]["speaker"] not in pair: out.pop()
             return out
 
-        talk = [i for i in idxs if dia[i][2] == "talk"]
-        phone = [i for i in idxs if dia[i][2] == "phone"]
+        def chan(i):
+            pair_ch = {dia[i][2], dia[i + 1][2]}
+            return "phone" if "phone" in pair_ch else "call" if "call" in pair_ch else "talk"
+        talk = [i for i in idxs if chan(i) == "talk"]
+        phone = [i for i in idxs if chan(i) == "phone"]
+        call = [i for i in idxs if chan(i) == "call"]
         best = max(talk or idxs, key=lambda i: (switches(i), -i))
         phone_sample = take(max(phone, key=lambda i: (switches(i), -i))) if phone and talk else []
         summ = [s for s in sentences(q["summary"])
                 if (pair[0] in s or pair[0] == "Rover" and re.search(r"\byou\b", s))
                 and (pair[1] in s or pair[1] == "Rover" and re.search(r"\byou\b", s))]
-        e["dialogue"].append(dict(meta, exchanges=len(idxs), talk=len(talk), phone=len(phone),
-                                  channel="talk" if talk else "phone", sample=take(best),
+        e["dialogue"].append(dict(meta, exchanges=len(idxs), talk=len(talk), phone=len(phone), call=len(call),
+                                  channel="talk" if talk else "call" if call else "phone", sample=take(best),
                                   phoneSample=phone_sample, summary=" ".join(summ[:2])[:500]))
 
     for i, a in enumerate(present):
@@ -421,6 +464,7 @@ for e in edges.values():
         e["firstMain"] = e["timeline"][0]
     e["phoneTotal"] = sum(d["phone"] for d in e["dialogue"])
     e["talkTotal"] = sum(d["talk"] for d in e["dialogue"])
+    e["callTotal"] = sum(d["call"] for d in e["dialogue"])
     e["dialogue"] = e["dialogue"][:40]
     e["scene"] = e["scene"][:30]
     e["mention"] = e["mention"][:20]

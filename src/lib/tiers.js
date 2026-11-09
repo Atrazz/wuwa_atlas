@@ -4,7 +4,7 @@ export const TIERS = [
   { key: 'family', label: 'Family', short: 'Family', color: '#f2c86b', icon: '◆',
     rule: 'Listed as relatives or guardian on the wiki profile.' },
   { key: 'dialogue', label: 'Conversation', short: 'Talked', color: '#5ee6ff', icon: '❖',
-    rule: 'Speak to each other in a quest, in person or on WavesLine.' },
+    rule: 'Reply to each other within the same scene: in person, by call or on WavesLine.' },
   { key: 'voiceline', label: 'Voice line', short: 'Voice line', color: '#b38cff', icon: '♪',
     rule: 'Has an “About …” voice line for the other.' },
   { key: 'mention', label: 'Mention', short: 'Mentioned', color: '#ff8fb1', icon: '✦',
