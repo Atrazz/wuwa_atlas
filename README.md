@@ -46,8 +46,16 @@ reading by hand, never scraped.
 
 Fan project; game assets and text © Kuro Games, text via the Fandom wiki (CC BY-SA).
 
-## Deploy (GitHub Pages)
+## Deploy (Cloudflare Pages)
 
-`.github/workflows/deploy.yml` builds the site and publishes `dist/` on every push to `main`.
-One-time setup: in the repo go to **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-The site is then served at `https://<user>.github.io/<repo>/` (Vite `base: './'` makes paths work under any repo name).
+Static site: build command `npm run build`, output directory `dist`, Node 22 (pinned in `.node-version`).
+
+- **From a private GitHub repo:** Cloudflare dashboard → Workers & Pages → Create → Pages → Connect to Git,
+  choose the repo, preset *Vite*. Every push to `main` redeploys.
+- **Without GitHub:** `npm run build && npx wrangler pages deploy dist --project-name wuwa-interact`
+
+## Deploy (Netlify)
+
+`netlify.toml` sets the build (`npm run build`) and publish directory (`dist`).
+Connect the repo in Netlify, or for a manual deploy drag the **`dist`** folder (not the project folder)
+onto Netlify's deploy page.
