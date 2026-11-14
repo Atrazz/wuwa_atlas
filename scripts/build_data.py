@@ -190,6 +190,12 @@ for title, wt in quests_wt.items():
     if not ib: continue
     dia = parse_dialogue(wt)
     listed = {canon(x) for x in ib.get("characters", "").split(";") if x.strip()}
+    # A cast entry such as "Lily (Rinascita)" (an Averardo Vault worker) with no plain "Lily" means
+    # this quest's "Lily:" lines belong to that namesake, not to the playable Resonator.
+    namesakes = {m.group(1).strip(): x for x in listed for m in [QUALIFIED.match(x)]
+                 if m and m.group(1).strip() in PLAYABLE and m.group(1).strip() not in listed and m.group(1).strip() != "Rover"}
+    if namesakes:
+        dia = [(namesakes.get(l[0], l[0]),) + tuple(l[1:]) if l else l for l in dia]
     speakers = {l[0] for l in dia if l}
     summ = ""
     m = re.search(r"==\s*Summary\s*==(.*?)(\n==[^=])", wt, re.S)
